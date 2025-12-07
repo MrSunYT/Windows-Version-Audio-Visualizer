@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Windows Version Beat Visualizer</title>
+
+<style>
+  body {
+    margin: 0;
+    background: #000;
+    color: #00ffcc;
+    font-family: "Segoe UI", sans-serif;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+  }
+
+  h1 {
+    margin-bottom: 10px;
+  }
+
+  #windowsVersion {
+    font-size: 4rem;
+    font-weight: bold;
+    transition: transform 0.1s ease, color 0.2s ease;
+    margin: 10px;
+  }
+
+  .controls {
+    margin-top: 15px;
+    display: flex;
+    gap: 15px;
+    align-items: center;
+    color: white;
+  }
+
+  .credits {
+    margin-top: 15px;
+    font-size: 12px;
+    color: #888;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .credits a {
+    color: #00aaff;
+    text-decoration: none;
+  }
+
+  .credits img {
+    height: 25px;
+    width: auto;
+    opacity: 0.9;
+  }
+
+  input[type="file"], input[type="range"] {
+    font-size: 1rem;
+  }
+</style>
+</head>
+
+<body>
+
+<h1>Windows Desktop Beat Visualizer</h1>
+
+<div id="windowsVersion">Windows 1.0</div>
+
+<div class="controls">
+  <input type="file" id="audioFile" accept="audio/*">
+  <label>Volume</label>
+  <input type="range" id="volumeSlider" min="0" max="1" step="0.01" value="1">
+</div>
+
+<div class="credits">
+  <span>Made by Mr. Sun</span>
+  <img src="./Signature.png" alt="Mr. Sun Signature">
+  <a href="https://www.youtube.com/@MrSunOfficialy" target="_blank">YouTube</a>
+</div>
+
+<script>
+  const versions = [
+    "Windows 1.0", "Windows 2", "Windows 3", "Windows 95",
+    "Windows 98", "Windows Me", "Windows 2000", "Windows XP",
+    "Windows Vista", "Windows 7", "Windows 8", "Windows 8.1",
+    "Windows 10", "Windows 11"
+  ];
+
+  let currentVersion = 0;
+  const versionDisplay = document.getElementById("windowsVersion");
+  const audioFileInput = document.getElementById("audioFile");
+  const volumeSlider = document.getElementById("volumeSlider");
+
+  let audioContext, analyser, dataArray, source, animationId, gainNode;
+  let energyHistory = [];
+  const historySize = 43;
+
+  audioFileInput.addEventListener("change", function () {
+    if (!this.files.length) return;
+
+    const file = this.files[0];
+    const url = URL.createObjectURL(file);
+
+    if (audioContext) {
+      audioContext.close();
+      cancelAnimationFrame(animationId);
+    }
+
+    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+    const audio = new Audio(url);
+    audio.play();
+
+    source = audioContext.createMediaElementSource(audio);
+    analyser = audioContext.createAnalyser();
+    gainNode = audioContext.createGain();
+
+    analyser.fftSize = 512;
+
+    source.connect(gainNode);
+    gainNode.connect(analyser);
+    analyser.connect(audioContext.destination);
+
+    gainNode.gain.value = volumeSlider.value;
+    volumeSlider.addEventListener("input", () => {
+      gainNode.gain.value = volumeSlider.value;
+    });
+
+    const bufferLength = analyser.frequencyBinCount;
+    dataArray = new Uint8Array(bufferLength);
+
+    function nextWindowsVersion() {
+      currentVersion = (currentVersion + 1) % versions.length;
+      versionDisplay.textContent = versions[currentVersion];
+
+      versionDisplay.style.transform = "scale(1.2)";
+      versionDisplay.style.color = `hsl(${Math.random() * 360}, 100%, 50%)`;
+
+      setTimeout(() => {
+        versionDisplay.style.transform = "scale(1)";
+      }, 120);
+    }
+
+    function detectBeat() {
+      analyser.getByteFrequencyData(dataArray);
+
+      let sum = 0;
+      for (let i = 0; i < dataArray.length; i++) {
+        sum += dataArray[i];
+      }
+      const instantEnergy = sum / dataArray.length;
+
+      energyHistory.push(instantEnergy);
+      if (energyHistory.length > historySize) {
+        energyHistory.shift();
+      }
+
+      let avgEnergy = 0;
+      for (let e of energyHistory) {
+        avgEnergy += e;
+      }
+      avgEnergy /= energyHistory.length;
+
+      if (instantEnergy > avgEnergy * 1.4) {
+        nextWindowsVersion();
+      }
+
+      animationId = requestAnimationFrame(detectBeat);
+    }
+
+    detectBeat();
+  });
+</script>
+
+</body>
+</html>
